@@ -1,7 +1,7 @@
 import ts3
 import sqlite3 as sql
 import configparser
-
+from pprint import pprint
 def isValidChannel(ts3conn, channelid):
     try:
         ts3conn.channelinfo(cid=channelid)[0]
@@ -41,6 +41,7 @@ def moduser(ts3conn, uid, user, remove):
                 sendchat(ts3conn, 'Adding ' + user + ' to ' + ts3conn.channelinfo(cid=channel[0])[0]['channel_name'] )
         except ts3.query.TS3QueryError:
             print('User ' + user + ' not found')
+            sendchat(ts3conn, ts3.query.TS3QueryError, True)
             sendchat(ts3conn, 'Error: User not Found', True)
     else:
         print("ID " + uid + "is not authorized!")
@@ -74,6 +75,9 @@ def modadmin(ts3con, uid, user, channelid, remove):
 
 def checkchat(ts3conn):
     ts3conn.servernotifyregister(event='textchannel')
+    ts3conn.servernotifyregister(event='server')
+    ts3conn.servernotifyregister(event='channel', id_='0')
+    eventfired = False
     while True:
         ts3conn.send_keepalive()
         try:
@@ -83,39 +87,55 @@ def checkchat(ts3conn):
             event = ts3conn.wait_for_event(timeout=550)
         except ts3.query.TS3TimeoutError:
             pass
-
         else:
-            if (event[0]['invokername'] != nickname ): #Prevent Feedback loops from bot responses!
-                message = event[0]['msg']
-                invokeruid = event[0]['invokeruid']
-                if (message[0] == '!'): # If its actually a command
-                    if (message[:4] == '!add') and (message[4] == ' '): #Lets add person to the whitelist
-                        user = message[5:]
-                        moduser(ts3conn, invokeruid, user, False)
-                    elif (message[:4] == '!del') and (message[4] == ' '): #Lets remove person from the whitelist
-                        user = message[5:]
-                        moduser(ts3conn, invokeruid, user, True)
-                    elif (message[:9] == '!adminadd') and (message[9] == ' '): #Lets add person to admin DB
-                        userinput = message[10:].split(' ', 1)
-                        if (len(userinput) == 2):
-                            channelid = userinput[0]
-                            user = userinput[1]
-                            modadmin(ts3conn, invokeruid, user, channelid, False)
+            if (event._data[0][:17] == b'notifycliententer') or (event._data[0][:17] == b'notifyclientmoved'):
+                #Debounce!
+                if (eventfired == False):
+                    # Check if the client has the lock group set
+                    groups = ts3conn.clientinfo(clid=event[0]['clid'])[0]['client_servergroups'].split(',')
+                    dbid = ts3conn.clientinfo(clid=event[0]['clid'])[0]['client_database_id']
+                    for i in range(0, len(groups)):
+                        if (groups[i] == lockgroup):
+                            print("Removing Lock group from " + ts3conn.clientinfo(clid=event[0]['clid'])[0]['client_nickname'])
+                            ts3conn.servergroupdelclient(cldbid=dbid, sgid=lockgroup)
+                            ts3conn.sendtextmessage(targetmode=1, target=event[0]['clid'], msg="Removed Lock group from you!")
+                        i += 1
+                    eventfired = True
+                else:
+                    eventfired = False
+
+            if (event._data[0][:17] == b'notifytextmessage'):
+                if (event[0]['invokername'] != nickname ): #Prevent Feedback loops from bot responses!
+                    message = event[0]['msg']
+                    invokeruid = event[0]['invokeruid']
+                    if (message[0] == '!'): # If its actually a command
+                        if (message[:4] == '!add') and (message[4] == ' '): #Lets add person to the whitelist
+                            user = message[5:]
+                            moduser(ts3conn, invokeruid, user, False)
+                        elif (message[:4] == '!del') and (message[4] == ' '): #Lets remove person from the whitelist
+                            user = message[5:]
+                            moduser(ts3conn, invokeruid, user, True)
+                        elif (message[:9] == '!adminadd') and (message[9] == ' '): #Lets add person to admin DB
+                            userinput = message[10:].split(' ', 1)
+                            if (len(userinput) == 2):
+                                channelid = userinput[0]
+                                user = userinput[1]
+                                modadmin(ts3conn, invokeruid, user, channelid, False)
+                            else:
+                                print('Unrecognized parameters of adminadd: ' + message[10:])
+                                sendchat(ts3conn, 'Error: !adminadd [channelid] [admin name]', True)
+                        elif (message[:9] == '!admindel') and (message[9] == ' '): #Lets delete person from admin DB
+                            userinput = message[10:].split(' ', 1)
+                            if (len(userinput) == 2):
+                                channelid = userinput[0]
+                                user = userinput[1]
+                                modadmin(ts3conn, invokeruid, user, channelid, True)
+                            else:
+                                print('Unrecognized parameters of admindel: ' + message[10:])
+                                sendchat(ts3conn, 'Error: !admindel [channelid] [admin name]', True)
                         else:
-                            print('Unrecognized parameters of adminadd: ' + message[10:])
-                            sendchat(ts3conn, 'Error: !adminadd [channelid] [admin name]', True)
-                    elif (message[:9] == '!admindel') and (message[9] == ' '): #Lets delete person from admin DB
-                        userinput = message[10:].split(' ', 1)
-                        if (len(userinput) == 2):
-                            channelid = userinput[0]
-                            user = userinput[1]
-                            modadmin(ts3conn, invokeruid, user, channelid, True)
-                        else:
-                            print('Unrecognized parameters of admindel: ' + message[10:])
-                            sendchat(ts3conn, 'Error: !admindel [channelid] [admin name]', True)
-                    else:
-                        print('Unrecognized Command: ' + message)
-                        sendchat(ts3conn, 'Error: Unrecognized Command ' + message, True)
+                            print('Unrecognized Command: ' + message)
+                            sendchat(ts3conn, 'Error: Unrecognized Command ' + message, True)
     return None
 
 
@@ -130,6 +150,7 @@ if __name__ == '__main__':
     adminuid = config['connection'].get('adminuid')
     allowedgroup = config['groups'].get('allowed_group', '9')
     guestgroup = config['groups'].get('guest_group', '8')
+    lockgroup = config['groups'].get('lock_group', '9')
     nickname = config['cosmetic'].get('nickname', 'SelfServe')
     styling = config['cosmetic'].getboolean('styling', True)
 
