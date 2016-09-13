@@ -14,7 +14,9 @@ adminuid =
 #ID of the channel group to grant users when they are given channel access. (Default: 9)
 #allowed_group = 9
 #ID of the channel group to give users on removal of permissions. (Default: 8 (Guest) )
-#guest_group = 8
+#guest_channel_group = 8
+#ID of the guest server group to assign clients on join
+#guest_server_group = 8
 #ID of the server group used to prevent users from moving. (Default: 9)
 #lock_group = 9
 

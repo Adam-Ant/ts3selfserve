@@ -1,2 +1,4 @@
 selfserve.cfg
 users.db
+users.db.old
+users.db-journal

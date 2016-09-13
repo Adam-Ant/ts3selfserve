@@ -56,9 +56,11 @@ def modadmin(ts3con, uid, user, channelid, remove):
                     cluid = ts3conn.clientdbinfo(cldbid=founddbid)[0]['client_unique_identifier'] #Get UID from DB id
                     if (remove == True):
                         db.execute('DELETE FROM ChannelAdmins WHERE CHANNELID = ? AND ADMIN = ?', (channelid, cluid))
+                        dbconn.commit()
                         sendchat(ts3conn, 'Removed ' + user + ' from admin of ' + ts3conn.channelinfo(cid=channelid)[0]['channel_name'])
                     else:
                         db.execute('INSERT INTO ChannelAdmins (CHANNELID, ADMIN) VALUES (?, ?)', (channelid, cluid))
+                        dbconn.commit()
                         sendchat(ts3conn, 'Added ' + user + ' as admin of ' + ts3conn.channelinfo(cid=channelid)[0]['channel_name'])
                 except ts3.query.TS3QueryError:
                     print('User ' + user + ' not found while changing admin')
@@ -87,8 +89,12 @@ def checkchat(ts3conn):
             event = ts3conn.wait_for_event(timeout=550)
         except ts3.query.TS3TimeoutError:
             pass
+        except KeyboardInterrupt:
+            dbconn.commit()
+            exit()
         else:
             if (event._data[0][:17] == b'notifycliententer') or (event._data[0][:17] == b'notifyclientmoved'):
+                groupAssigned = False
                 #Debounce!
                 if (eventfired == False):
                     # Check if the client has the lock group set
@@ -99,7 +105,14 @@ def checkchat(ts3conn):
                             print("Removing Lock group from " + ts3conn.clientinfo(clid=event[0]['clid'])[0]['client_nickname'])
                             ts3conn.servergroupdelclient(cldbid=dbid, sgid=lockgroup)
                             ts3conn.sendtextmessage(targetmode=1, target=event[0]['clid'], msg="Removed Lock group from you!")
+                        if (groups[i] == guestservergroup):
+                            groupAssigned = True
                         i += 1
+
+                    if groupAssigned == False:
+                        ts3conn.servergroupaddclient(cldbid=dbid, sgid=guestservergroup)
+                        print("Adding Server Group to cldbid: " + str(dbid))
+                        
                     eventfired = True
                 else:
                     eventfired = False
@@ -149,7 +162,8 @@ if __name__ == '__main__':
     loginpass = config['connection'].get('password')
     adminuid = config['connection'].get('adminuid')
     allowedgroup = config['groups'].get('allowed_group', '9')
-    guestgroup = config['groups'].get('guest_group', '8')
+    guestgroup = config['groups'].get('guest_channel_group', '8')
+    guestservergroup = config['groups'].get('guest_server_group','8')
     lockgroup = config['groups'].get('lock_group', '9')
     nickname = config['cosmetic'].get('nickname', 'SelfServe')
     styling = config['cosmetic'].getboolean('styling', True)
@@ -159,10 +173,10 @@ if __name__ == '__main__':
         exit()
 
     #Start the DB connection, create the table
-    dbcon = sql.connect('users.db')
-    db = dbcon.cursor()
+    dbconn = sql.connect('users.db')
+    db = dbconn.cursor()
     db.execute('CREATE TABLE IF NOT EXISTS ChannelAdmins (ID INT PRIMARY KEY, CHANNELID INT NOT NULL, ADMIN TEXT NOT NULL)')
-
+    dbconn.commit()
     #Lets Connect!
     with ts3.query.TS3Connection(hostname, port) as ts3conn:
         ts3conn.login(client_login_name=loginname, client_login_password=loginpass)
