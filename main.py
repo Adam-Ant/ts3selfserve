@@ -122,7 +122,7 @@ def checkchat(ts3conn):
             pass
         except KeyboardInterrupt:
             dbconn.commit()
-            exit()
+            exit(0)
         else:
             if (event._data[0][:17] == b'notifycliententer') or (event._data[0][:17] == b'notifyclientmoved'):
                 groupAssigned = False
@@ -201,14 +201,14 @@ if __name__ == '__main__':
 
     if not (os.path.isdir(filepath)):
         print('Error: Config directory does not exist. Exiting...')
-        exit()
+        exit(1)
 
     if not (os.path.isfile(filepath + '/selfserve.cfg')):
         print('Warn: Config file does not exist, writing example config. Please configure and try again.')
         c = open(filepath + '/selfserve.cfg', 'w')
         c.write(defaultconfig)
         c.close()
-        exit()
+        exit(1)
 
     config = configparser.ConfigParser()
     config.read(filepath + '/selfserve.cfg')
@@ -227,7 +227,7 @@ if __name__ == '__main__':
 
     if ((loginname == '') or (loginpass ==  '') or (adminuid == '')):
         print('Could not read selfserve.cfg. Please ensure it exists and is formatted correctly. Check the sample config for more info.')
-        exit()
+        exit(1)
 
     #Start the DB connection, create the table
     dbconn = sql.connect(filepath + '/users.db')
