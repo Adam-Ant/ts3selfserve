@@ -153,33 +153,39 @@ def checkchat(ts3conn):
                     message = event[0]['msg']
                     invokeruid = event[0]['invokeruid']
                     if (message[0] == '!'): # If its actually a command
-                        if (message[:4] == '!add') and (message[4] == ' '): #Lets add person to the whitelist
-                            user = message[5:]
-                            moduser(ts3conn, invokeruid, user, False)
-                        elif (message[:4] == '!del') and (message[4] == ' '): #Lets remove person from the whitelist
-                            user = message[5:]
-                            moduser(ts3conn, invokeruid, user, True)
-                        elif (message[:9] == '!adminadd') and (message[9] == ' '): #Lets add person to admin DB
-                            userinput = message[10:].split(' ', 1)
-                            if (len(userinput) == 2):
-                                channelid = userinput[0]
-                                user = userinput[1]
-                                modadmin(ts3conn, invokeruid, user, channelid, False)
-                            else:
-                                print('Unrecognized parameters of adminadd: ' + message[10:])
+                        try:
+                            if (message[:4] == '!add') and (message[4] == ' '): #Lets add person to the whitelist
+                                user = message[5:]
+                                moduser(ts3conn, invokeruid, user, False)
+                            elif (message[:4] == '!del') and (message[4] == ' '): #Lets remove person from the whitelist
+                                user = message[5:]
+                                moduser(ts3conn, invokeruid, user, True)
+                            elif (message[:9] == '!adminadd') and (message[9] == ' '): #Lets add person to admin DB
+                                userinput = message[10:].split(' ', 1)
+                                if (len(userinput) == 2):
+                                    channelid = userinput[0]
+                                    user = userinput[1]
+                                    modadmin(ts3conn, invokeruid, user, channelid, False)
+                                else:
+                                    print('Unrecognized parameters of adminadd: ' + message[10:])
+                                    sendchat(ts3conn, 'Error: !adminadd [channelid] [admin name]', True)
                                 sendchat(ts3conn, 'Error: !adminadd [channelid] [admin name]', True)
-                        elif (message[:9] == '!admindel') and (message[9] == ' '): #Lets delete person from admin DB
-                            userinput = message[10:].split(' ', 1)
-                            if (len(userinput) == 2):
-                                channelid = userinput[0]
-                                user = userinput[1]
-                                modadmin(ts3conn, invokeruid, user, channelid, True)
+                            elif (message[:9] == '!admindel') and (message[9] == ' '): #Lets delete person from admin DB
+                                userinput = message[10:].split(' ', 1)
+                                if (len(userinput) == 2):
+                                    channelid = userinput[0]
+                                    user = userinput[1]
+                                    modadmin(ts3conn, invokeruid, user, channelid, True)
+                                else:
+                                    print('Unrecognized parameters of admindel: ' + message[10:])
+                                    sendchat(ts3conn, 'Error: !admindel [channelid] [admin name]', True)
                             else:
-                                print('Unrecognized parameters of admindel: ' + message[10:])
-                                sendchat(ts3conn, 'Error: !admindel [channelid] [admin name]', True)
-                        else:
+                                print('Unrecognized Command: ' + message)
+                                sendchat(ts3conn, 'Error: Unrecognized Command ' + message, True)
+                        except IndexError:
                             print('Unrecognized Command: ' + message)
-                            sendchat(ts3conn, 'Error: Unrecognized Command ' + message, True)
+                            sendchat(ts3conn, 'Error: Please specify a name and a channel.', True)
+
     return None
 
 
