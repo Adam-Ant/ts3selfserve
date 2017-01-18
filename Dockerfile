@@ -10,4 +10,4 @@ ADD *.py /ts3selfserve
 
 VOLUME ["/config"]
 WORKDIR /ts3selfserve
-CMD ["python3","/ts3selfserve/main.py","-c","/config"]
+CMD ["python3","-u","/ts3selfserve/main.py","-c","/config"]
